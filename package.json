@@ -1,0 +1,20 @@
+{
+  "dependencies": {
+    "axios": "^1.7.7",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-paginate": "^8.2.0",
+    "tailwindcss": "^3.4.14"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "devDependencies": {
+    "@types/node": "22.8.7",
+    "@types/react": "18.3.12",
+    "typescript": "5.6.3"
+  }
+}
