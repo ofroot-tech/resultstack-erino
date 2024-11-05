@@ -1,9 +1,6 @@
-'use client';
-
 import React, { useState, useEffect, ChangeEvent, useCallback } from 'react';
 import axios from 'axios';
 
-// Interface for GitHub user data structure
 interface GitHubUser {
     id: number;
     login: string;
@@ -18,27 +15,16 @@ interface GitHubUser {
 }
 
 export default function UserSearchBar() {
-    // State Management
-    // Stores the current search input
     const [query, setQuery] = useState<string>('');
-    // Holds the list of GitHub users fetched from the API
     const [results, setResults] = useState<GitHubUser[]>([]);
-    // Indicates if a fetch request is in progress
     const [loading, setLoading] = useState<boolean>(false);
-    // Stores error messages in case the API call fails
     const [error, setError] = useState<string | null>(null);
-    // Tracks the current page of results for pagination
     const [page, setPage] = useState<number>(1);
-    // Keeps track of the total number of users found
     const [totalCount, setTotalCount] = useState<number>(0);
-    // Identifies the user currently being hovered over to display additional information
-    const [hoveredUserId, setHoveredUserId] = useState<number | null>(null);
+    const [expandedUserId, setExpandedUserId] = useState<number | null>(null);
 
-    // Set the number of results per page to 5 for pagination
     const RESULTS_PER_PAGE = 5;
 
-    // Debounced function to fetch results
-    // Implements a debounce effect to limit API requests, waiting 300ms after typing to start a new search
     const fetchResults = useCallback(async () => {
         if (!query.trim()) {
             setResults([]);
@@ -52,42 +38,38 @@ export default function UserSearchBar() {
         try {
             const response = await axios.get(`https://api.github.com/search/users`, {
                 params: {
-                    q: `${query} in:login`, // Enable partial matching within username
+                    q: `${query} in:login`,
                     per_page: RESULTS_PER_PAGE,
                     page,
                 },
             });
 
-            // Directly set items to avoid extra requests
             setResults(response.data.items);
             setTotalCount(response.data.total_count);
         } catch (error) {
-            // If an API request fails, display an error message
             setError("Unable to fetch results.");
-            setResults([]); // Reset to empty state on a failed fetch
+            console.log("Fetch error:", error);
+            setResults([]);
             setTotalCount(0);
         } finally {
             setLoading(false);
         }
     }, [query, page]);
 
-    // Debounce effect to reduce API calls while typing
     useEffect(() => {
         const timer = setTimeout(() => {
             fetchResults();
-        }, 300); // Delay API call by 300ms
+        }, 300);
 
         return () => clearTimeout(timer);
     }, [query, page, fetchResults]);
 
-    // Updates query state on input change and resets page to 1 for new search
     const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
         setQuery(e.target.value);
         setPage(1);
         setError(null);
     };
 
-    // Pagination controls to navigate through results
     const handleNextPage = () => {
         if (page * RESULTS_PER_PAGE < totalCount) setPage((prevPage) => prevPage + 1);
     };
@@ -96,9 +78,12 @@ export default function UserSearchBar() {
         if (page > 1) setPage((prevPage) => prevPage - 1);
     };
 
+    const toggleDetails = (userId: number) => {
+        setExpandedUserId(expandedUserId === userId ? null : userId);
+    };
+
     return (
         <div className="container">
-            {/* Input field for search query */}
             <input
                 type="text"
                 placeholder="Search GitHub users by name or email"
@@ -111,18 +96,17 @@ export default function UserSearchBar() {
             <div className="results-container">
                 <ul>
                     {results.map((user) => (
-                        <li
-                            key={user.id}
-                            className="result-item"
-                            onMouseEnter={() => setHoveredUserId(user.id)}
-                            onMouseLeave={() => setHoveredUserId(null)}
-                        >
-                            <img src={user.avatar_url} alt={`${user.login}'s avatar`} />
-                            <a href={user.html_url} target="_blank" rel="noopener noreferrer">{user.login}</a>
+                        <li key={user.id} className="result-item">
+                            <div className="user-info">
+                                <img src={user.avatar_url} alt={`${user.login}'s avatar`} />
+                                <a href={user.html_url} target="_blank" rel="noopener noreferrer">{user.login}</a>
+                                <button onClick={() => toggleDetails(user.id)} className="dropdown-button">
+                                    {expandedUserId === user.id ? '▲' : '▼'}
+                                </button>
+                            </div>
 
-                            {/* Hover Card for User Details */}
-                            {hoveredUserId === user.id && (
-                                <div className="hover-card">
+                            {expandedUserId === user.id && (
+                                <div className="user-details">
                                     <p><strong>Name:</strong> {user.name ?? 'N/A'}</p>
                                     <p><strong>Location:</strong> {user.location ?? 'N/A'}</p>
                                     <p><strong>Email:</strong> {user.email ?? 'N/A'}</p>
@@ -136,18 +120,12 @@ export default function UserSearchBar() {
                 </ul>
             </div>
 
-            {/* Pagination buttons */}
             <div className="pagination">
-                <button onClick={handlePrevPage} disabled={page === 1}>
-                    Previous
-                </button>
+                <button onClick={handlePrevPage} disabled={page === 1}>Previous</button>
                 <span>Page {page}</span>
-                <button onClick={handleNextPage} disabled={page * RESULTS_PER_PAGE >= totalCount}>
-                    Next
-                </button>
+                <button onClick={handleNextPage} disabled={page * RESULTS_PER_PAGE >= totalCount}>Next</button>
             </div>
 
-            {/* Styling for the component */}
             <style jsx>{`
                 .container {
                     display: flex;
@@ -169,25 +147,6 @@ export default function UserSearchBar() {
                     border-radius: 8px;
                     outline: none;
                     margin-bottom: 20px;
-                    animation: glow 1.5s infinite alternate;
-                    transition: box-shadow 0.3s ease, border-color 0.3s ease;
-                }
-
-                .search-input:hover {
-                    animation: none;
-                    box-shadow: 0 0 12px rgba(0, 123, 255, 0.5);
-                    border-color: #007bff;
-                }
-
-                @keyframes glow {
-                    from {
-                        box-shadow: 0 0 10px rgba(0, 123, 255, 0.5);
-                        border-color: #007bff;
-                    }
-                    to {
-                        box-shadow: 0 0 20px rgba(0, 123, 255, 1);
-                        border-color: #0056b3;
-                    }
                 }
 
                 .results-container {
@@ -210,44 +169,55 @@ export default function UserSearchBar() {
 
                 .result-item {
                     display: flex;
-                    align-items: center;
-                    gap: 12px;
+                    flex-direction: column;
+                    padding: 15px 20px;
+                    border-radius: 999px;
+                    background-color: #ffffff;
+                    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
                     margin-bottom: 15px;
                     font-size: 18px;
                     position: relative;
-                    cursor: pointer;
                 }
 
-                .result-item img {
+                .user-info {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                }
+
+                .user-info img {
                     border-radius: 50%;
                     width: 50px;
                     height: 50px;
                 }
 
-                .result-item a {
+                .user-info a {
                     color: #007bff;
                     text-decoration: none;
+                    font-weight: bold;
+                    flex-grow: 1;
                 }
 
-                .result-item a:hover {
+                .user-info a:hover {
                     text-decoration: underline;
                 }
 
-                .hover-card {
-                    position: absolute;
-                    top: 100%;
-                    left: 0;
-                    background-color: white;
-                    border: 1px solid #ddd;
-                    border-radius: 8px;
-                    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-                    padding: 10px;
-                    margin-top: 5px;
-                    width: 250px;
-                    z-index: 10;
+                .dropdown-button {
+                    background: none;
+                    border: none;
+                    font-size: 18px;
+                    cursor: pointer;
                 }
 
-                .hover-card p {
+                .user-details {
+                    margin-top: 10px;
+                    padding: 10px;
+                    background-color: #f9f9f9;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+                }
+
+                .user-details p {
                     margin: 5px 0;
                     font-size: 14px;
                 }
@@ -267,11 +237,6 @@ export default function UserSearchBar() {
                     border: none;
                     border-radius: 4px;
                     cursor: pointer;
-                    transition: background-color 0.3s;
-                }
-
-                .pagination button:hover {
-                    background-color: #0056b3;
                 }
 
                 .pagination button:disabled {
