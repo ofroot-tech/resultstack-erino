@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, ChangeEvent, useCallback } from 'react';
 import axios from 'axios';
 
@@ -21,7 +23,7 @@ export default function UserSearchBar() {
     const [error, setError] = useState<string | null>(null);
     const [page, setPage] = useState<number>(1);
     const [totalCount, setTotalCount] = useState<number>(0);
-    const [expandedUserId, setExpandedUserId] = useState<number | null>(null);
+    const [extendedUserId, setExtendedUserId] = useState<number | null>(null);
 
     const RESULTS_PER_PAGE = 5;
 
@@ -48,7 +50,6 @@ export default function UserSearchBar() {
             setTotalCount(response.data.total_count);
         } catch (error) {
             setError("Unable to fetch results.");
-            console.log("Fetch error:", error);
             setResults([]);
             setTotalCount(0);
         } finally {
@@ -78,8 +79,8 @@ export default function UserSearchBar() {
         if (page > 1) setPage((prevPage) => prevPage - 1);
     };
 
-    const toggleDetails = (userId: number) => {
-        setExpandedUserId(expandedUserId === userId ? null : userId);
+    const toggleExtended = (userId: number) => {
+        setExtendedUserId((prevId) => (prevId === userId ? null : userId));
     };
 
     return (
@@ -96,17 +97,17 @@ export default function UserSearchBar() {
             <div className="results-container">
                 <ul>
                     {results.map((user) => (
-                        <li key={user.id} className="result-item">
-                            <div className="user-info">
-                                <img src={user.avatar_url} alt={`${user.login}'s avatar`} />
-                                <a href={user.html_url} target="_blank" rel="noopener noreferrer">{user.login}</a>
-                                <button onClick={() => toggleDetails(user.id)} className="dropdown-button">
-                                    {expandedUserId === user.id ? '▲' : '▼'}
-                                </button>
-                            </div>
+                        <li
+                            key={user.id}
+                            className={`pill ${extendedUserId === user.id ? 'extended' : ''}`}
+                            onClick={() => toggleExtended(user.id)}
+                        >
+                            <img src={user.avatar_url} alt={`${user.login}'s avatar`} className="avatar" />
+                            <span className="username">{user.login}</span>
+                            <span className="arrow">▼</span>
 
-                            {expandedUserId === user.id && (
-                                <div className="user-details">
+                            {extendedUserId === user.id && (
+                                <div className="extended-content">
                                     <p><strong>Name:</strong> {user.name ?? 'N/A'}</p>
                                     <p><strong>Location:</strong> {user.location ?? 'N/A'}</p>
                                     <p><strong>Email:</strong> {user.email ?? 'N/A'}</p>
@@ -118,12 +119,6 @@ export default function UserSearchBar() {
                         </li>
                     ))}
                 </ul>
-            </div>
-
-            <div className="pagination">
-                <button onClick={handlePrevPage} disabled={page === 1}>Previous</button>
-                <span>Page {page}</span>
-                <button onClick={handleNextPage} disabled={page * RESULTS_PER_PAGE >= totalCount}>Next</button>
             </div>
 
             <style jsx>{`
@@ -151,14 +146,7 @@ export default function UserSearchBar() {
 
                 .results-container {
                     width: 100%;
-                    max-width: 1200px;
-                    margin-top: 20px;
-                }
-
-                .error {
-                    color: red;
-                    font-size: 14px;
-                    margin-top: 5px;
+                    max-width: 600px;
                 }
 
                 ul {
@@ -167,81 +155,66 @@ export default function UserSearchBar() {
                     margin: 0;
                 }
 
-                .result-item {
+                .pill {
                     display: flex;
-                    flex-direction: column;
-                    padding: 15px 20px;
-                    border-radius: 999px;
-                    background-color: #ffffff;
-                    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-                    margin-bottom: 15px;
+                    align-items: center;
+                    padding: 10px;
+                    margin-bottom: 10px;
                     font-size: 18px;
+                    background-color: #fff;
+                    border: 1px solid #ddd;
+                    border-radius: 20px;
+                    transition: max-width 0.3s ease, padding 0.3s ease;
+                    cursor: pointer;
+                    max-width: 250px;
                     position: relative;
                 }
 
-                .user-info {
-                    display: flex;
-                    align-items: center;
-                    gap: 12px;
+                .pill.extended {
+                    max-width: 100%;
+                    padding: 10px 20px;
                 }
 
-                .user-info img {
+                .avatar {
                     border-radius: 50%;
-                    width: 50px;
-                    height: 50px;
+                    width: 40px;
+                    height: 40px;
                 }
 
-                .user-info a {
+                .username {
                     color: #007bff;
-                    text-decoration: none;
                     font-weight: bold;
-                    flex-grow: 1;
+                    margin-left: 10px;
                 }
 
-                .user-info a:hover {
-                    text-decoration: underline;
-                }
-
-                .dropdown-button {
-                    background: none;
-                    border: none;
+                .arrow {
+                    margin-left: auto;
+                    color: #888;
                     font-size: 18px;
-                    cursor: pointer;
+                    transition: transform 0.3s ease;
                 }
 
-                .user-details {
-                    margin-top: 10px;
-                    padding: 10px;
-                    background-color: #f9f9f9;
-                    border-radius: 8px;
-                    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+                /* Rotate the arrow when the pill is extended */
+                .pill.extended .arrow {
+                    transform: rotate(180deg);
                 }
 
-                .user-details p {
-                    margin: 5px 0;
-                    font-size: 14px;
-                }
-
-                .pagination {
+                .extended-content {
                     display: flex;
-                    align-items: center;
-                    gap: 10px;
-                    margin-top: 20px;
+                    flex-direction: column;
+                    margin-left: 60px;
+                    font-size: 14px;
+                    color: #333;
+                    opacity: 0;
+                    max-height: 0;
+                    overflow: hidden;
+                    transition: opacity 0.3s ease, max-height 0.3s ease;
                 }
 
-                .pagination button {
-                    padding: 8px 16px;
-                    font-size: 16px;
-                    color: white;
-                    background-color: #007bff;
-                    border: none;
-                    border-radius: 4px;
-                    cursor: pointer;
-                }
-
-                .pagination button:disabled {
-                    background-color: #ddd;
-                    cursor: not-allowed;
+                /* Reveal the extended content smoothly */
+                .pill.extended .extended-content {
+                    opacity: 1;
+                    max-height: 300px;
                 }
             `}</style>
         </div>
