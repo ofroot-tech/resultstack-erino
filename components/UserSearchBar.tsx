@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, ChangeEvent } from 'react';
+import React, { useState, useEffect, ChangeEvent, useCallback } from 'react';
 import axios from 'axios';
 
+// Interface for GitHub user data structure
 interface GitHubUser {
     id: number;
     login: string;
@@ -17,63 +18,76 @@ interface GitHubUser {
 }
 
 export default function UserSearchBar() {
+    // State Management
+    // Stores the current search input
     const [query, setQuery] = useState<string>('');
+    // Holds the list of GitHub users fetched from the API
     const [results, setResults] = useState<GitHubUser[]>([]);
+    // Indicates if a fetch request is in progress
     const [loading, setLoading] = useState<boolean>(false);
+    // Stores error messages in case the API call fails
     const [error, setError] = useState<string | null>(null);
-    const [page, setPage] = useState<number>(1); // Track current page
-    const [totalCount, setTotalCount] = useState<number>(0); // Track total results count
+    // Tracks the current page of results for pagination
+    const [page, setPage] = useState<number>(1);
+    // Keeps track of the total number of users found
+    const [totalCount, setTotalCount] = useState<number>(0);
+    // Identifies the user currently being hovered over to display additional information
     const [hoveredUserId, setHoveredUserId] = useState<number | null>(null);
 
-    const RESULTS_PER_PAGE = 5; // Set the number of results per page to 5
+    // Set the number of results per page to 5 for pagination
+    const RESULTS_PER_PAGE = 5;
 
-    useEffect(() => {
-        const fetchResults = async () => {
-            if (!query.trim()) {
-                setResults([]);
-                setTotalCount(0);
-                return;
-            }
+    // Debounced function to fetch results
+    // Implements a debounce effect to limit API requests, waiting 300ms after typing to start a new search
+    const fetchResults = useCallback(async () => {
+        if (!query.trim()) {
+            setResults([]);
+            setTotalCount(0);
+            return;
+        }
 
-            setLoading(true);
-            setError(null);
+        setLoading(true);
+        setError(null);
 
-            try {
-                const response = await axios.get(`https://api.github.com/search/users`, {
-                    params: {
-                        q: query,
-                        per_page: RESULTS_PER_PAGE,
-                        page,
-                    },
-                });
+        try {
+            const response = await axios.get(`https://api.github.com/search/users`, {
+                params: {
+                    q: `${query} in:login`, // Enable partial matching within username
+                    per_page: RESULTS_PER_PAGE,
+                    page,
+                },
+            });
 
-                const userDetails = await Promise.all(
-                    response.data.items.map(async (user: GitHubUser) => {
-                        const userResponse = await axios.get<GitHubUser>(`https://api.github.com/users/${user.login}`);
-                        return userResponse.data;
-                    })
-                );
-
-                setResults(userDetails);
-                setTotalCount(response.data.total_count);
-            } catch (error) {
-                setError("Unable to fetch results.");
-                setResults([]);
-                setTotalCount(0);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchResults();
+            // Directly set items to avoid extra requests
+            setResults(response.data.items);
+            setTotalCount(response.data.total_count);
+        } catch (error) {
+            // If an API request fails, display an error message
+            setError("Unable to fetch results.");
+            setResults([]); // Reset to empty state on a failed fetch
+            setTotalCount(0);
+        } finally {
+            setLoading(false);
+        }
     }, [query, page]);
 
+    // Debounce effect to reduce API calls while typing
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            fetchResults();
+        }, 300); // Delay API call by 300ms
+
+        return () => clearTimeout(timer);
+    }, [query, page, fetchResults]);
+
+    // Updates query state on input change and resets page to 1 for new search
     const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
         setQuery(e.target.value);
-        setPage(1); // Reset to first page on new query
+        setPage(1);
         setError(null);
     };
 
+    // Pagination controls to navigate through results
     const handleNextPage = () => {
         if (page * RESULTS_PER_PAGE < totalCount) setPage((prevPage) => prevPage + 1);
     };
@@ -84,6 +98,7 @@ export default function UserSearchBar() {
 
     return (
         <div className="container">
+            {/* Input field for search query */}
             <input
                 type="text"
                 placeholder="Search GitHub users by name or email"
@@ -105,11 +120,12 @@ export default function UserSearchBar() {
                             <img src={user.avatar_url} alt={`${user.login}'s avatar`} />
                             <a href={user.html_url} target="_blank" rel="noopener noreferrer">{user.login}</a>
 
+                            {/* Hover Card for User Details */}
                             {hoveredUserId === user.id && (
                                 <div className="hover-card">
-                                    <p><strong>Name:</strong> {user.name || 'N/A'}</p>
-                                    <p><strong>Location:</strong> {user.location || 'N/A'}</p>
-                                    <p><strong>Email:</strong> {user.email || 'N/A'}</p>
+                                    <p><strong>Name:</strong> {user.name ?? 'N/A'}</p>
+                                    <p><strong>Location:</strong> {user.location ?? 'N/A'}</p>
+                                    <p><strong>Email:</strong> {user.email ?? 'N/A'}</p>
                                     <p><strong>Public Repos:</strong> {user.public_repos}</p>
                                     <p><strong>Account Created:</strong> {new Date(user.created_at).toLocaleDateString()}</p>
                                     <p><strong>Last Updated:</strong> {new Date(user.updated_at).toLocaleDateString()}</p>
@@ -119,6 +135,8 @@ export default function UserSearchBar() {
                     ))}
                 </ul>
             </div>
+
+            {/* Pagination buttons */}
             <div className="pagination">
                 <button onClick={handlePrevPage} disabled={page === 1}>
                     Previous
@@ -129,11 +147,8 @@ export default function UserSearchBar() {
                 </button>
             </div>
 
+            {/* Styling for the component */}
             <style jsx>{`
-
-                button { 
-                    color: black;
-                }
                 .container {
                     display: flex;
                     flex-direction: column;
